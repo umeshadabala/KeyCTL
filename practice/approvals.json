@@ -1,0 +1,23 @@
+{
+  "synthetic": true,
+  "changes": [
+    {
+      "approval_id": "change-100",
+      "approved_by": "user-admin",
+      "subject": "user-alex",
+      "operation": "grant_role",
+      "role": "report-reader",
+      "scope": ["reports", "reports-node-a", "reports-node-b"],
+      "valid_from_utc": "2026-01-15T09:01:00Z",
+      "valid_until_utc": "2026-01-15T09:07:00Z"
+    },
+    {
+      "approval_id": "change-101",
+      "approved_by": "user-admin",
+      "subject": "user-alex",
+      "operation": "revoke_role",
+      "role": "report-reader",
+      "effective_at_utc": "2026-01-15T09:07:00Z"
+    }
+  ]
+}

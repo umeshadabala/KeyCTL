@@ -1,0 +1,23 @@
+event_id,label,reason
+evt-001,routine,Normal viewer sign-in
+evt-002,routine,Viewer reads catalog
+evt-003,approved_change,Operator approves change-100
+evt-004,approved_change,Approved subject role and time match change-100
+evt-005,routine,Read falls within approved reports role scope
+evt-006,routine,Known service edge reports to catalog
+evt-007,routine,Normal viewer sign-in
+evt-008,unexpected_role_change,No approval exists for user-blair becoming operator
+evt-009,review_after_role_change,Allowed read follows unexpected role change in same session
+evt-010,lateral_movement_candidate,First unexpected service edge in flow-005
+evt-011,lateral_movement_candidate,Second unexpected service edge in same session and flow
+evt-012,lateral_movement_candidate,Third unexpected service edge in same session and flow
+evt-013,routine_delayed_delivery,Older event arrives after evt-014
+evt-014,routine,Valid reports read arrives before earlier catalog read
+evt-015,routine_clock_offset,Source clock is 2000 milliseconds ahead
+evt-016,approved_change,Operator revokes user-alex reports role under change-101
+evt-017,routine_denial,Node A denies reports access after revocation
+evt-018,routine_denial,Node B denies reports access after revocation
+evt-019,routine,Normal viewer sign-in
+evt-020,isolated_denial,One denied request alone does not establish lateral movement
+evt-021,routine,Revocation of reports role leaves catalog access available
+evt-022,routine,Normal operator sign-out
