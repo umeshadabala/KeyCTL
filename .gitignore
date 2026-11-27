@@ -1,5 +1,14 @@
+.DS_Store
+.venv/
+.venv312/
 __pycache__/
 *.py[cod]
-.venv/
-.env
-.DS_Store
+.pytest_cache/
+*.tmp
+*.db
+*.sqlite*
+keyctl-state.json
+keyctl-state.lock
+node_modules/
+ui/node_modules/
+ui/dist/

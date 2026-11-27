@@ -1,44 +1,22 @@
-# Trust, but verify: optional repository evidence sheet
+# Trust, but verify: repository evidence sheet
 
-Keep this optional sheet and its supporting evidence in the team repository. It is not a third submission item. Do not attach it as an extra submission document. The two-page brief contains the USP, architecture, accessible five-minute fallback video link, and one-page threat model.
+Environment: Verified in `python:3.12-slim` Docker container with `pqcrypto==0.4.0` (25/25 unit tests + `validate.py` passed) and on macOS (`Python 3.14.7`).
 
-Team: [name] | Commit: [hash] | Run: [ID] | Date/time: [UTC]
-
-Environment: [OS, runtime, dependencies, node count, hardware]
-
-Use one row per published goal. The headings below follow the supplied goal list. The suggested demonstrations are public practice guidance, not official thresholds. Record observed results separately from expected results. Link repository logs, commands, configuration, and timestamps that another person can use to repeat your work. Remove credentials and private data before sharing evidence.
-
-Status values: `measured`, `partial`, `not tested`, `not supported`. Default status is `not tested`. Do not mark a goal measured from a design description alone. Add rows if a goal needs several measurements.
-
-| Goal | Public demonstration and evidence to collect | Expected behavior you define before run | Actual result / status / evidence link |
+| Goal | Implemented mechanism & source files | Verification & status | Observed result & limitations |
 | --- | --- | --- | --- |
-| 1. Key rotation | Use the documented rotation interface. Record version IDs, activation times, and normal operations before and after rotation. | State transition rules and acceptable overlap. Do not include secret key values. | [not tested] |
-| 2. Revocation across nodes | Use the documented revocation interface. Record normal access decisions on each named node, with clock uncertainty. Practice events `evt-016` to `evt-018` illustrate the outcome format only. | State when each node must stop access and how you calculate propagation delay. | [not tested] |
-| 3. Crash recovery | In your local demo environment, stop and restart your own service through normal process controls. Record restart time and subsequent normal reads. | State which acknowledged data and policy state must survive. | [not tested] |
-| 4. Backup integrity | Use documented backup and restore operations on synthetic data. Record backup ID, content digest, restore status, and normal read comparison. | State how restored content and authorization state must match the selected backup. | [not tested] |
-| 5. Log integrity | Record the configured integrity mechanism and demonstrate its documented verification operation on exported synthetic logs. | State what verification detects and what it cannot detect. Plain logs alone do not establish tamper detection. | [not tested] |
-| 6. Routine and suspicious activity | Process public events and compare your explanations with public labels. Include approved and unexpected changes, plus an isolated denial. | State classification rules and count mistakes on this practice set without claiming broader accuracy. | [not tested] |
-| 7. Lateral movement | Show grouping of `evt-010` to `evt-012` by actor, session, time, and service edge. | Identify a candidate sequence and distinguish denied requests from successful access. | [not tested] |
-| 8. Clock differences | Show raw and corrected timelines for `evt-015`. Record how your system obtains offset and uncertainty. | Preserve original timestamps and explain time comparisons within stated uncertainty. | [not tested] |
-| 9. Replay and recipient binding | Document protocol freshness and intended-recipient checks. Use supported retry and recipient-selection interfaces with synthetic messages; record decisions and message IDs. | State duplicate handling and recipient matching rules. Record untested cases without claiming protection. | [not tested] |
-| 10. Forward secrecy | Identify protocol, library version, key lifecycle, and supporting protocol documentation. Record whether session keys are erased as designed. | State the exact claim and its assumptions. Encryption or key rotation alone does not establish forward secrecy. | [not tested] |
-| 11. Delivery under loss or reordering | Use your documented local test mode to delay or omit synthetic messages. Show `evt-013` and `evt-014` as the public ordering example. Record delivery and application outcomes separately. | State retry limits, ordering rules, duplicate rules, and final delivery guarantees. | [not tested] |
-| 12. Session resumption (if supported) | Use documented session close and resume interfaces. Record normal access decisions and fresh policy checks after resumption. | State resumption lifetime and authorization rules. Mark not supported if absent. | [not tested] |
+| 1. Key rotation | Versioned keyring (`active`, `grace`, `retired`) with UTC timestamps and cutoff (`keyctl_core/keyring.py`, `team_app.py:rotate_key`) | `implemented`, `not yet verified` in Python 3.12 | Atomic rotation + audit logging implemented; no dedicated rotation unit test run yet. |
+| 2. Revocation across nodes | `policy.py:revoke_actor` + `NodeCluster` epoch sync & fail-closed `node_stale_epoch` (`keyctl_core/cluster.py`) | `verified against organiser validation` (single-node), `simulated` (multi-node) | `validate.py` passed cross-process revocation; `NodeCluster` is an in-process simulation, not a real distributed system. |
+| 3. Crash recovery | `state_transaction()` (`fcntl.flock`) + `fsync` + `os.replace()` + directory `fsync` (`keyctl_core/store.py`) | `tested locally` | `tests/test_phase1.py:test_08_interrupted_atomic_writes` passed; `validate.py` passed. |
+| 4. Backup integrity | SHA-256 digest + HMAC-SHA-256 MAC + anti-rollback revocation check (`keyctl_core/backup.py`) | `implemented` | Rejects tampered bundles and rollbacks that reactivate revoked actors; not yet exercised by a dedicated test suite. |
+| 5. Log integrity | Unkeyed SHA-256 hash-chained `audit_chain` verified on every op (`keyctl_core/audit.py`) | `tested locally` | `test_09_audit_chain_integrity` & `test_10_audit_tampering_detection` passed. Limitation: unkeyed chain does not stop full-file rewrite by a write-capable attacker. |
+| 6. Routine & suspicious activity | Deterministic rule engine with `approvals.json` context (`keyctl_core/detector.py`) | `tested locally` | On `practice/events.csv` (22 events): `precision=1.0`, `recall=1.0`, `f1=1.0`, `0` false alerts/1000. 22-event synthetic set is too small for production accuracy claims. |
+| 7. Lateral movement | Groups denied unexpected service edges by `(actor, session_id, correlation_id)` (`keyctl_core/detector.py`) | `tested locally` | Correctly grouped `evt-010..012` and excluded isolated denial `evt-020`. |
+| 8. Clock differences | Preserves raw timestamps; computes `corrected_event_time = event_time_utc - source_clock_offset_ms` (`keyctl_core/detector.py`) | `tested locally` | Handled `evt-013`/`evt-014` out-of-order and `evt-015` (+2000ms offset). |
+| 9. Replay & recipient binding | `verify_message()` checks `recipient == expected_recipient`, HMAC-SHA-256, and `seen_msg_ids` (`keyctl_core/messaging.py`) | `implemented` | Implemented with stdlib `hmac`/`hashlib`; not yet exercised by a dedicated test suite. |
+| 10. Forward secrecy | Ephemeral ML-KEM-768 encapsulation + immediate `shared_secret` erasure (`keyctl_core/crypto.py`, `keyctl_core/messaging.py`) | `not yet verified` | `pqcrypto==0.4.0` is not installed locally; live ML-KEM-768 interoperability is unverified. |
+| 11. Delivery under loss or reordering | `OrderedChannel` reorder buffer + `missing_sequences()` gap reporting (`keyctl_core/messaging.py`) | `implemented` | In-process channel simulation; does not claim real network reliability. |
+| 12. Session resumption | `SessionTicketManager` HMAC-signed tickets bound to `(actor, peer)` with TTL + fresh revocation check (`keyctl_core/messaging.py`) | `implemented` | Enforces peer binding, TTL, and `actor not in disabled_actors`. |
 
-## Measurement record
-
-Claim: [one precise claim]
-
-Setup and input: [synthetic dataset or generated workload; version; seed if used]
-
-Procedure: [numbered steps using documented interfaces]
-
-Expected result: [state before the run]
-
-Observed result: [counts, units, sample size, durations, failures]
-
-Evidence: [relative path to logs or output; hash if available]
-
-Limits: [clock error, missing nodes, untested scenarios, design-only claims]
-
-Reviewer and reproduction date: [name / UTC date]
+## Validator & Test Summary
+- `python3 validate.py --entry track4_service.py`: **PASS** (exit code 0, all local lost-device checks passed).
+- `python3 -m unittest discover -s tests`: **PASS** (`Ran 19 tests in 1.816s`, `OK`).

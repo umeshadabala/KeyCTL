@@ -1,0 +1,8 @@
+[project]
+name = "keyctl"
+version = "1.0.0"
+description = "Track 4: Trust, but verify — zero-trust access control, post-quantum protected_read, and security event detection"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "pqcrypto==0.4.0",
+]

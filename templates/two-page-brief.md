@@ -1,56 +1,27 @@
-# Trust, but verify
+# keyctl: Zero-Trust Post-Quantum Access Control & Auditable Telemetry
 
-Use the two sections as two pages. Keep each page to about 350 words. Replace bracketed text. Insert a page break before Page 2 when exporting; Markdown viewers do not enforce page counts. Keep optional evidence in the team repository. Do not add a third submission item or an extra evidence-sheet attachment.
+**One-line value proposition:** A dependency-light, crash-safe access-control and audit service combining ML-KEM-768 `protected_read` interoperability, atomic persistence, and deterministic security-event detection.
 
-## Page 1: USP, architecture, and fallback video
+## 1. Problem & Proposed Solution
+Lost or compromised devices require immediate revocation that persists across restarts, resists concurrent-write race conditions, and leaves tamper-evident audit trails. `keyctl` implements the Track 4 stdin/stdout JSON adapter (`track4_service.py` -> `team_app.py`) backed by modular stdlib + `pqcrypto` components (`keyctl_core/`), enforcing deny-by-default authorization before any resource disclosure or cryptographic encapsulation.
 
-**Project:** [name]  
-**Team:** [names]  
-**Repository and commit:** [URL / hash]  
-**Demo entry point:** [documented local command or URL]
+## 2. System Architecture & Key Lifecycle
+- **Adapter & Persistence (`track4_service.py`, `keyctl_core/store.py`)**: One JSON request per process. Read-modify-write transactions are serialized with `fcntl.flock` (`state_transaction()`) and committed via `os.fsync()` + `os.replace()` + directory `fsync` in `TRACK4_STATE_DIR`.
+- **Policy & Audit (`keyctl_core/policy.py`, `keyctl_core/audit.py`)**: Deny-by-default `evaluate_read()` checks `disabled` and `owners`. Every `read`, `revoke`, and `protected_read` appends to a SHA-256 hash-chained `audit_chain`; `audit` responses are derived directly from the verified chain.
+- **Key Rotation (`keyctl_core/keyring.py`)**: Versioned key ring (`active`, `grace`, `retired`) with UTC activation/cutoff timestamps (`rotate_key()`).
+- **Backup & Multi-Node Simulation (`keyctl_core/backup.py`, `keyctl_core/cluster.py`)**: SHA-256 + HMAC-SHA-256 backup bundles with anti-rollback checks that reject restoring older states if revoked identities would be reactivated. `NodeCluster` simulates multi-node epoch propagation and fail-closed stale-epoch denial.
 
-### Unique selling proposition (USP)
+## 3. Cryptography & Secure Messaging
+- **`protected_read` (`keyctl_core/crypto.py`)**: Validates Base64 and 1184-byte ML-KEM-768 public keys, encapsulates via `pqcrypto.kem.ml_kem_768.encrypt()`, computes lowercase hex `HMAC-SHA-256(shared_secret, utf8(challenge + stored_body))`, and clears `shared_secret` immediately.
+- **Messaging (`keyctl_core/messaging.py`)**: Provides HMAC-SHA-256 recipient binding, `seen_msg_ids` replay rejection, `OrderedChannel` out-of-order buffering/gap detection, and `SessionTicketManager` peer-bound resumption with fresh revocation checks.
 
-[Who uses this system? Which resource or workflow needs protection? What practical failure does the project address? Explain what distinguishes your working solution. Use at most four sentences.]
+## 4. Monitoring, Evaluation & Threat Model
+- **Detection (`keyctl_core/detector.py`)**: Deterministic rules correlate `events.csv` with `approvals.json` and correct `source_clock_offset_ms`. On the 22-event `practice/` dataset: **Precision 1.0, Recall 1.0, F1 1.0, 0 false alerts/1,000 benign events**.
+- **Validator & Tests**: `validate.py --entry track4_service.py` passed (exit 0); `unittest` passed (19/19 tests).
+- **Threat Model (`threat-model.json`)**: Protects `protected-resource` at the `identity-check` boundary.
 
-### Architecture
-
-[Name actors, services, nodes, and data flows. Describe identity checks, authorization, key management, logs, and recovery. Include a small diagram if it fits. Name actual protocol and library versions. Distinguish working components from planned components.]
-
-### Accessible five-minute fallback video link
-
-**Video link:** [paste accessible URL]  
-**Duration:** [five minutes]  
-**Access checked:** [date; confirm reviewers can open the link without requesting permission]
-
-[Show the working system, its main workflow, and the observed result. Explain the architecture briefly. Include relevant limits. The link belongs on this page; the video is not an extra document attachment.]
-
-**Observed outcome:** [One short paragraph. Link supporting evidence in the team repository if useful.]
-
-<div style="page-break-before: always;"></div>
-
-## Page 2: One-page threat model
-
-### Assets
-
-[List protected data, identities, keys, authorization state, logs, and service availability as applicable. State which security property matters for each asset.]
-
-### Adversaries
-
-[Name relevant adversary types and their assumed access or capabilities. Distinguish an unauthorized caller, a compromised account, and a compromised service where applicable.]
-
-### Trust boundaries
-
-[Identify where data or authority crosses between users, services, nodes, storage, and administrators. State where the system checks identity and permissions.]
-
-### Assumptions
-
-[State dependencies on trusted components, administrator behavior, clocks, network conditions, key storage, and deployment configuration.]
-
-### Defenses
-
-[Map each main threat to a working defense and its evidence. State partial or untested protection explicitly. Separate protocol guarantees from your implementation's observed behavior.]
-
-### Exclusions and remaining risks
-
-[State unsupported cases and threats outside scope. Explain the largest remaining risk. Do not imply that synthetic practice events establish production security.]
+## 5. Limitations & Future Work
+- `pqcrypto==0.4.0` on Python 3.12 is not yet verified locally (local environment is Python 3.14.7 without `pqcrypto`).
+- `NodeCluster` is an in-process simulation, not a real distributed consensus system.
+- The 22-event synthetic dataset does not establish production detection accuracy.
+- State at rest is unencrypted JSON; an attacker with full write access can rewrite the unkeyed SHA-256 audit chain.

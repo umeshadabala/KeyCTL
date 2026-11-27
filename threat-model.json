@@ -1,0 +1,56 @@
+{
+  "asset": "protected-resource",
+  "boundary": "identity-check",
+  "protected_assets": [
+    "Stored resource bodies (contents)",
+    "Ownership and revocation policy (owners, disabled)",
+    "Key lifecycle state (keyring)",
+    "Hash-chained audit log (audit_chain)",
+    "Ephemeral ML-KEM-768 shared secrets and session keys"
+  ],
+  "trust_boundaries": [
+    "stdin/stdout JSON adapter boundary (track4_service.py -> team_app.py)",
+    "Identity and revocation policy boundary (keyctl_core/policy.py)",
+    "Persisted state boundary in TRACK4_STATE_DIR (keyctl_core/store.py)",
+    "Message envelope boundary (keyctl_core/messaging.py)"
+  ],
+  "actors_and_identities": [
+    "Authorized asset owner",
+    "Disabled/revoked identity",
+    "Unauthorized peer",
+    "System/operator (key rotation, backup/restore)"
+  ],
+  "adversary_capabilities": [
+    "Submitting malformed JSON, newline-injected IDs, or unauthorized read/protected_read requests",
+    "Replaying captured messages or substituting recipient fields",
+    "Modifying persisted state or backup bundles on disk",
+    "Attempting to use retired key versions or expired session tickets"
+  ],
+  "threat_scenarios": [
+    "Lost-device access after revocation",
+    "Concurrent process race overwriting revocation or audit state",
+    "Interrupted write corrupting committed state",
+    "Audit log tampering or backup rollback to reactivate revoked identities",
+    "Message replay, recipient substitution, loss/reordering, and stale session resumption",
+    "Unapproved privilege escalation and lateral movement in service logs"
+  ],
+  "security_controls": [
+    "Deny-by-default authorization before resource access or ML-KEM-768 encapsulation",
+    "Cross-process fcntl.flock serialization + atomic fsync/os.replace persistence",
+    "SHA-256 hash-chained audit log verified on every read, revoke, audit, and protected_read",
+    "HMAC-SHA-256 + SHA-256 backup verification with anti-rollback revocation checks",
+    "ML-KEM-768 encapsulation + HMAC-SHA-256 proof with immediate secret erasure",
+    "HMAC-SHA-256 message authentication, recipient binding, seen_msg_ids replay cache, and OrderedChannel",
+    "Deterministic rule-based event detector with approval-context and clock-offset correction"
+  ],
+  "residual_risks": [
+    "State at rest in keyctl-state.json is unencrypted JSON; an attacker with full write access to state can rewrite the unkeyed SHA-256 audit chain from genesis",
+    "pqcrypto==0.4.0 on Python 3.12 is not yet verified locally (local runtime is Python 3.14.7 without pqcrypto)",
+    "NodeCluster is an in-process simulation, not a real distributed consensus system",
+    "Detector accuracy (1.0 F1) is measured only on the 22-event synthetic practice dataset"
+  ],
+  "assumptions_and_constraints": [
+    "Offline Linux judging container with Python 3.12, pqcrypto==0.4.0, and read-only root filesystem",
+    "Writable state directory provided via TRACK4_STATE_DIR or OS temp directory"
+  ]
+}
